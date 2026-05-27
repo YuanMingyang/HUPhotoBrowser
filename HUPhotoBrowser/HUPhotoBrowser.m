@@ -35,6 +35,42 @@
 
 @implementation HUPhotoBrowser
 
+/// 优先使用 anchor 所在 window，兼容 iOS 13+ 多 Scene
+static UIWindow *HUHostWindow(UIView *anchorView) {
+    if (anchorView.window) {
+        return anchorView.window;
+    }
+    UIApplication *application = UIApplication.sharedApplication;
+    if (@available(iOS 13.0, *)) {
+        for (UIScene *scene in application.connectedScenes) {
+            if (scene.activationState != UISceneActivationStateForegroundActive) {
+                continue;
+            }
+            if (![scene isKindOfClass:[UIWindowScene class]]) {
+                continue;
+            }
+            UIWindowScene *windowScene = (UIWindowScene *)scene;
+            for (UIWindow *window in windowScene.windows) {
+                if (window.isKeyWindow) {
+                    return window;
+                }
+            }
+            if (windowScene.windows.count > 0) {
+                return windowScene.windows.firstObject;
+            }
+        }
+        return nil;
+    }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    return application.keyWindow;
+#pragma clang diagnostic pop
+}
+
+- (UIWindow *)hu_hostWindow {
+    return HUHostWindow(self.imageView ?: self);
+}
+
 - (void)dealloc {
     self.collectionView.delegate = nil; 
     [[NSNotificationCenter defaultCenter] removeObserver:self];
@@ -198,11 +234,11 @@
     self.collectionView.dataSource = self;
     [self.collectionView registerClass:[HUPhotoBrowserCell class] forCellWithReuseIdentifier:kPhotoBrowserCellID];
     
-    [[UIApplication sharedApplication].keyWindow addSubview:self];
+    [[self hu_hostWindow] addSubview:self];
 }
 
 - (void)setupToolBar {
-    CGFloat bottom = [UIApplication sharedApplication].keyWindow.safeAreaInsets.bottom;
+    CGFloat bottom = [self hu_hostWindow].safeAreaInsets.bottom;
     _toolBar = [[UIView alloc] initWithFrame:CGRectMake(0, self.frame.size.height-30-bottom, self.frame.size.width, 30)];
     _toolBar.backgroundColor = [UIColor clearColor];
     [self addSubview:_toolBar];
@@ -231,7 +267,8 @@
 
 - (void)animateImageViewAtIndex:(NSInteger)index {
     _index = index;
-    CGRect startFrame = [self.imageView.superview convertRect:self.imageView.frame toView:[UIApplication sharedApplication].keyWindow];
+    UIWindow *hostWindow = [self hu_hostWindow];
+    CGRect startFrame = [self.imageView.superview convertRect:self.imageView.frame toView:hostWindow];
     CGRect endFrame = kScreenRect;
     
     if (self.imageView.image) {
@@ -263,7 +300,7 @@
     UIImageView *tempImageView = [[UIImageView alloc] initWithFrame:startFrame];
     tempImageView.image = self.imageView.image;
     tempImageView.contentMode = UIViewContentModeScaleAspectFit;
-    [[UIApplication sharedApplication].keyWindow addSubview:tempImageView];
+    [hostWindow addSubview:tempImageView];
     _tmpImageView = tempImageView;
     
     if (self.URLStrings && !self.images) {
@@ -310,14 +347,15 @@
         return;
     }
     
-    CGRect endFrame = [self.imageView.superview convertRect:self.imageView.frame toView:[UIApplication sharedApplication].keyWindow];
+    UIWindow *hostWindow = [self hu_hostWindow];
+    CGRect endFrame = [self.imageView.superview convertRect:self.imageView.frame toView:hostWindow];
     
     UIImageView *tempImageView = [[UIImageView alloc] initWithFrame:_endTempFrame];
     tempImageView.image = self.imageView.image;
     tempImageView.contentMode = UIViewContentModeScaleAspectFit;
     self.collectionView.hidden = YES;
     
-    [[UIApplication sharedApplication].keyWindow addSubview:tempImageView];
+    [hostWindow addSubview:tempImageView];
     
     
     [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
