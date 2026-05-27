@@ -202,7 +202,8 @@
 }
 
 - (void)setupToolBar {
-    _toolBar = [[UIView alloc] initWithFrame:CGRectMake(0, self.frame.size.height-38, self.frame.size.width, 30)];
+    CGFloat bottom = [UIApplication sharedApplication].keyWindow.safeAreaInsets.bottom;
+    _toolBar = [[UIView alloc] initWithFrame:CGRectMake(0, self.frame.size.height-30-bottom, self.frame.size.width, 30)];
     _toolBar.backgroundColor = [UIColor clearColor];
     [self addSubview:_toolBar];
     
